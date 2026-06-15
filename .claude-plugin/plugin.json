@@ -6,6 +6,8 @@
     "name": "TomTom",
     "email": "joost.voogt@tomtom.com"
   },
+  "homepage": "https://github.com/JoostVoogt-TomTom/pi-progress-plugin",
+  "repository": "https://github.com/JoostVoogt-TomTom/pi-progress-plugin",
   "license": "MIT",
   "keywords": [
     "skills",

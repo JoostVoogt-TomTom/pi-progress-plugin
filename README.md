@@ -49,12 +49,27 @@ This is deliberate for the testing phase.
 
 ## Install
 
+From GitHub (recommended for teammates):
+
 ```
-/plugin marketplace add /home/jovo/projects/pi-progress-plugin
+/plugin marketplace add JoostVoogt-TomTom/pi-progress-plugin
+/plugin install pi-progress@pi-progress
+```
+
+Or from a local checkout (for development):
+
+```
+/plugin marketplace add /path/to/pi-progress-plugin
 /plugin install pi-progress@pi-progress
 ```
 
 Then start a session and run `/pi-progress`.
+
+## Contributing
+
+Issues and pull requests welcome — clone the repo, make changes, and point a
+local marketplace at your checkout to test (`/plugin marketplace add <path>` then
+`/reload-plugins`). The plugin is plain markdown + shell, no build step.
 
 ## Jira field map
 
