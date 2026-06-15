@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# SessionStart hook for pi-progress plugin
+# Injects the using-pi-progress skill into the session context so the agent
+# discovers the /pi-progress RAG reporting flow without the user introducing it.
+
+set -euo pipefail
+
+# Determine plugin root directory
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PLUGIN_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
+# Read using-pi-progress content
+using_content=$(cat "${PLUGIN_ROOT}/skills/using-pi-progress/SKILL.md" 2>&1 || echo "Error reading using-pi-progress skill")
+
+# Escape string for JSON embedding using bash parameter substitution.
+escape_for_json() {
+    local s="$1"
+    s="${s//\\/\\\\}"
+    s="${s//\"/\\\"}"
+    s="${s//$'\n'/\\n}"
+    s="${s//$'\r'/\\r}"
+    s="${s//$'\t'/\\t}"
+    printf '%s' "$s"
+}
+
+using_escaped=$(escape_for_json "$using_content")
+session_context="<IMPORTANT>\nYou have access to the PI Progress plugin.\n\n**Below is the full content of your 'pi-progress:using-pi-progress' skill — your introduction to the /pi-progress RAG reporting flow. For the full workflow, use the 'Skill' tool to invoke 'pi-progress':**\n\n${using_escaped}\n</IMPORTANT>"
+
+# Output context injection as JSON.
+# Claude Code hooks expect hookSpecificOutput.additionalContext (nested).
+# Other harnesses (Copilot CLI, generic SDK) expect additionalContext (top-level).
+if [ -n "${CLAUDE_PLUGIN_ROOT:-}" ] && [ -z "${COPILOT_CLI:-}" ]; then
+  printf '{\n  "hookSpecificOutput": {\n    "hookEventName": "SessionStart",\n    "additionalContext": "%s"\n  }\n}\n' "$session_context"
+else
+  printf '{\n  "additionalContext": "%s"\n}\n' "$session_context"
+fi
+
+exit 0

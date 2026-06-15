@@ -1,0 +1,5 @@
+# Generated progress reports — contain real Jira data, not part of the plugin
+docs/pi-progress/
+
+# Local Claude Code settings / permission cache
+.claude/
