@@ -78,9 +78,11 @@ the curated, meeting-facing subset of this diff.}
 <!--
 ALL-TEAMS VARIANT — when the run covers every team (read-only roll-up):
 - Lead with an overall 🔴/🟡/🟢 roll-up and a per-team R/A/G breakdown.
-- Add a per-team FRESHNESS line so the reader sees which teams updated their tickets:
-    ### {Team} — 🔴 {n} · 🟡 {n} · 🟢 {n} — reviewed {N} of {M} epics this cycle
-    {if N < M, list the unreviewed epic keys: "Not reviewed: SEARCHPU-xxxx, SEARCHPU-yyyy"}
+- Add a per-team FRESHNESS line so the reader sees which teams updated their tickets. In a
+  roll-up, comments are fetched only for at-risk epics, so scope the count to those (computing
+  it for all {M} epics needs a full per-epic comment scan — a single-team drill-down):
+    ### {Team} — 🔴 {n} · 🟡 {n} · 🟢 {n} — reviewed {N} of {M} at-risk epics this cycle
+    {if N < M, list the unreviewed at-risk epic keys: "Not reviewed: SEARCHPU-xxxx, SEARCHPU-yyyy"}
 - Group the RAG summary table, Risk register, and per-epic detail under a `## {Team}` heading
   per team. The Highlights section stays a single combined list across all teams.
 - Replace single-team interactive reconciliation with a "Recommended reconciliations" table.

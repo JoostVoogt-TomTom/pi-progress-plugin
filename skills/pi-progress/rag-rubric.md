@@ -53,13 +53,14 @@ e.g. `Red — End date 2026-06-05 passed, status In Progress, 40% of children do
 
 Authoritative so every EM's report uses the same terms (consistent quality across teams):
 
-- **Cycle window** — the half-open interval `(previous-report-date, today]`, where
-  *previous-report-date* is the date of the most recent prior report for the same scope +
-  quarter in `docs/pi-progress/`. If no prior report exists, the window is the **last 14 days**
-  (the bi-weekly cadence).
-- **Reviewed this cycle?** — an epic is *reviewed* when it has a `RAG flag: <Color>` comment
-  whose **created date falls in the cycle window**. This is the signal that an EM actually
-  refreshed the ticket this cycle (vs. a stale carry-over).
+- **Cycle window** — the half-open interval `(min(previous-report-date, today−14d), today]`,
+  where *previous-report-date* is the date of the most recent prior report for the same scope +
+  quarter in `docs/pi-progress/`. The **~14-day floor** keeps the freshness signal meaningful
+  when a prior report was run very recently. If no prior report exists, the window is the
+  **last 14 days** (the bi-weekly cadence).
+- **Reviewed this cycle?** — an epic is *reviewed* when it has a RAG-tag comment (`RAG flag:` /
+  `RAG status:` + colour, case-insensitive) whose **created date falls in the cycle window**.
+  This is the signal that an EM actually refreshed the ticket this cycle (vs. a stale carry-over).
 - **Transitioned into risk?** — the epic's previous Agreed/Recorded RAG was **Green** (or there
   was no prior record) and its current Agreed RAG is **Amber or Red**. These are the epics the
   PI meeting should hear about first.

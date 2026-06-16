@@ -28,7 +28,9 @@ always-safe output is the markdown report. This matters especially during the te
 
 When a RAG status **changes**, the next steps are recorded as a comment in the team's
 existing convention: a comment whose first line is `RAG flag: <Color>` followed by the
-next-steps text. Reproduce this format exactly.
+next-steps text. Reproduce this canonical format exactly **when writing**. When **reading**
+existing comments, also recognise the variants the team already uses in practice —
+`RAG status: <Color>` and `RAG flag <COLOR>:` (case-insensitive).
 
 ## Field map (TomTom Jira — cloudId resolved at runtime)
 
@@ -147,6 +149,10 @@ For each epic, `searchJiraIssuesUsingJql` with `parent = <EPIC-KEY>` (fields: `s
 Compute **% done** = children with `statusCategory = "Done"` ÷ total children. (Again, use
 `jq` on the saved file if large; just count by `statusCategory`.)
 
+> **All-teams / multi-team roll-ups:** do NOT fetch children for every epic (can be thousands).
+> Use **status + End date** as the primary RAG signal and fetch child-% only for borderline /
+> at-risk epics. Full per-epic progress is a **single-team** drill-down concern.
+
 ### 5. Propose RAG
 Apply the rubric in `rag-rubric.md` using **today's date**, weighting **completion / status
 over the raw date** (an epic past its End date but effectively delivered is Green, not Red).
@@ -165,11 +171,15 @@ report. All reads — they never write to Jira.
 1. **Latest `RAG flag:` comment (Amber/Red epics only).** For every epic whose agreed RAG is
    **Amber or Red**, fetch its comments read-only via `getJiraIssue` requesting the `comment`
    field (if the response auto-saves to a file, extract with `jq`). Find the **latest** comment
-   whose first line is `RAG flag: <Color>`; capture its body (the **follow-up action**) and its
-   **created date**. Only the at-risk subset is fetched, to keep this cheap.
-2. **Cycle window.** `(previous-report-date, today]`, where previous-report-date is the date of
-   the most recent prior report for the same scope+quarter in `docs/pi-progress/`. If no prior
-   report exists, default the window to **the last 14 days** (bi-weekly cadence).
+   whose text starts with a RAG tag — match `RAG (flag|status)` followed by a colour
+   (Red/Amber/Green), **case-insensitive**, with or without a colon (the team uses `RAG flag:`,
+   `RAG status:`, and `RAG flag RED:` interchangeably). Capture its body (the **follow-up
+   action**) and its **created date**. Only the at-risk subset is fetched, to keep this cheap.
+2. **Cycle window.** `(min(previous-report-date, today−14d), today]`, where previous-report-date
+   is the date of the most recent prior report for the same scope+quarter in `docs/pi-progress/`.
+   Flooring the look-back at **~14 days** keeps the freshness signal meaningful when a prior
+   report was run very recently (otherwise the window collapses to near-zero). If no prior report
+   exists, use the last 14 days (bi-weekly cadence).
 3. **Reviewed this cycle?** — true when the epic has a `RAG flag:` comment whose created date
    falls in the cycle window. (For Green epics with no comment fetched, treat as not-reviewed
    only if you have a date to judge by; otherwise mark `n/a`.)
