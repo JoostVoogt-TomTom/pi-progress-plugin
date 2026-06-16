@@ -1,7 +1,7 @@
 {
   "name": "pi-progress",
   "description": "PI Progress: generate bi-weekly quarterly RAG progress reports for engineering teams from Jira epics — proposes a RAG status (Red/Amber/Green) from live Jira data, guides reconciliation of mismatches, and produces a markdown report",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "author": {
     "name": "TomTom",
     "email": "joost.voogt@tomtom.com"

@@ -20,8 +20,17 @@ a ready-to-present **markdown report**.
 4. **Takes you by the hand** to reconcile each mismatch: what the RAG should become, why, and
    which Jira fields (e.g. **End date**) to update so the epic is self-consistent and would
    *pass* the RAG check on a re-run.
-5. Writes a **markdown report** to `docs/pi-progress/<date>-<team-or-project>-<quarter>.md`,
-   including the agreed next steps and a drafted `RAG flag: <Color>` comment per change.
+5. Writes a **markdown report** to `docs/pi-progress/<date>-<team-or-project>-<quarter>.md`. It
+   **leads with Highlights** (the transitions into Amber/Red and new risks to discuss in the PI
+   meeting), then a RAG summary, a **Risk register** listing every Amber/Red epic with its
+   reason (signals + blockers) and follow-up action, per-epic detail, and the agreed next steps
+   + drafted `RAG flag: <Color>` comment per change. **All-teams runs** add a **per-team
+   freshness line** ("reviewed N of M epics this cycle") so you can see which teams refreshed
+   their tickets.
+6. **Optionally runs a retrospective** (`/pi-progress-retro`) so the tool learns from itself —
+   feeding this run's **RAG overrides** (where you disagreed with the proposed status),
+   friction, and report-quality gaps back into the rubric / skill / report template as
+   **confirmed edits** (each gated by a y/n).
 
 ## RAG definitions
 
@@ -91,6 +100,7 @@ The RAG logic is grounded in the TomTom Jira schema (see
 .claude-plugin/      plugin.json, marketplace.json
 skills/
   pi-progress/       SKILL.md (workflow) + rag-rubric.md + report-template.md
+  pi-progress-retro/ SKILL.md (self-retrospective: learns from a run, edits the files above)
   using-pi-progress/ SKILL.md (overview, auto-announced on session start)
 hooks/               SessionStart announce (hooks.json + run-hook.cmd + session-start)
 ```

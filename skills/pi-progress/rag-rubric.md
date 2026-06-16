@@ -49,6 +49,24 @@ not yet overdue.
 Output per epic: the proposed RAG **plus a one-line rationale that names the signals used**,
 e.g. `Red — End date 2026-06-05 passed, status In Progress, 40% of children done`.
 
+## Cycle & freshness definitions
+
+Authoritative so every EM's report uses the same terms (consistent quality across teams):
+
+- **Cycle window** — the half-open interval `(previous-report-date, today]`, where
+  *previous-report-date* is the date of the most recent prior report for the same scope +
+  quarter in `docs/pi-progress/`. If no prior report exists, the window is the **last 14 days**
+  (the bi-weekly cadence).
+- **Reviewed this cycle?** — an epic is *reviewed* when it has a `RAG flag: <Color>` comment
+  whose **created date falls in the cycle window**. This is the signal that an EM actually
+  refreshed the ticket this cycle (vs. a stale carry-over).
+- **Transitioned into risk?** — the epic's previous Agreed/Recorded RAG was **Green** (or there
+  was no prior record) and its current Agreed RAG is **Amber or Red**. These are the epics the
+  PI meeting should hear about first.
+
+These are reporting/derivation concepts only — they do **not** change the Green/Amber/Red
+decision rubric above.
+
 ## Reconciliation goal
 
 A **mismatch** is when the recorded `customfield_10159` disagrees with the data-driven

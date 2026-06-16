@@ -71,7 +71,7 @@ jq -r '.issues.nodes[].fields.customfield_10150.value // empty' <file> | sort | 
 Then **present the discovered teams as a selectable list** (each with its epic count) using a
 selection prompt (`AskUserQuestion`, multi-select), always including an **"All teams"** option.
 The user may pick:
-- **one team** → single-team run with interactive reconciliation (steps 6–7);
+- **one team** → single-team run with interactive reconciliation (steps 6 and 8);
 - **several teams** → run each selected team and produce a combined overview grouped by team;
 - **All teams** → every epic in the project + quarter, grouped by team (read-only roll-up).
 
@@ -80,7 +80,7 @@ Notes:
   Delivery** — a fallback hint only; the live discovery query is the source of truth.
 - If the user already named a team (or teams) in the invocation, skip the prompt and use it,
   validating each appears in the discovered list (warn and re-offer the list if not).
-- Multi-team and All-teams runs follow the read-only roll-up behavior in step 7.
+- Multi-team and All-teams runs follow the read-only roll-up behavior in step 8.
 
 ### 2. Resolve cloudId
 Call `getAccessibleAtlassianResources`; use the `tomtom` site's `id` as `cloudId` for all
@@ -119,7 +119,28 @@ Show one row per epic: `key | summary | recorded RAG | proposed RAG | match? | r
 A **mismatch** is where the recorded RAG is inconsistent with what the data implies. State
 clearly which epics match (no action) and which need reconciliation.
 
-### 7. Guided reconciliation (take the user by the hand)
+### 7. Gather risk-register & freshness inputs
+These power the **Highlights**, **Risk register**, and **per-team freshness** sections of the
+report. All reads — they never write to Jira.
+
+1. **Latest `RAG flag:` comment (Amber/Red epics only).** For every epic whose agreed RAG is
+   **Amber or Red**, fetch its comments read-only via `getJiraIssue` requesting the `comment`
+   field (if the response auto-saves to a file, extract with `jq`). Find the **latest** comment
+   whose first line is `RAG flag: <Color>`; capture its body (the **follow-up action**) and its
+   **created date**. Only the at-risk subset is fetched, to keep this cheap.
+2. **Cycle window.** `(previous-report-date, today]`, where previous-report-date is the date of
+   the most recent prior report for the same scope+quarter in `docs/pi-progress/`. If no prior
+   report exists, default the window to **the last 14 days** (bi-weekly cadence).
+3. **Reviewed this cycle?** — true when the epic has a `RAG flag:` comment whose created date
+   falls in the cycle window. (For Green epics with no comment fetched, treat as not-reviewed
+   only if you have a date to judge by; otherwise mark `n/a`.)
+4. **Transitioned into risk?** — true when the epic's previous Agreed/Recorded RAG was Green
+   (or absent) and its current Agreed RAG is **Amber or Red**. The previous RAG comes from the
+   prior report you already read for "Changes since last report".
+5. **Reason (per Amber/Red epic)** — the one-line rubric rationale from step 5 **plus** any open
+   "is blocked by" links from `issuelinks`.
+
+### 8. Guided reconciliation (take the user by the hand)
 > **All-teams and multi-team runs are a read-only roll-up.** With potentially dozens of
 > epics, do not run the interactive per-epic flow below; instead list the mismatches in a
 > *Recommended reconciliations* table and suggest a focused single-team run to resolve them.
@@ -150,21 +171,35 @@ mismatch is resolved. Draft, but do not yet apply:
 
 Repeat for the next mismatched epic.
 
-### 8. Write the markdown report (always)
+### 9. Write the markdown report (always)
 Create `docs/pi-progress/<YYYY-MM-DD>-<team-or-project>-<quarter>.md` from
 `report-template.md` (use the team name in the filename for a single-team run, or `all-teams`
-for an all-teams run). Include the summary RAG table, per-epic detail (status, End date,
-% progress, recorded → agreed RAG, rationale), and for each reconciled epic the agreed next
-steps and the drafted `RAG flag: …` comment + proposed field edits. For an **All teams** run,
-group the summary table and detail sections under a `## <Team>` heading per team, and lead
-with an overall R/A/G roll-up plus a per-team R/A/G breakdown. This file also serves as
-a local history of past reports — read the previous one in the folder if present to note what
-changed since last cycle.
+for an all-teams run). The report leads with the meeting-ready material:
+- **Highlights — for discussion** (up front): the things to raise in the PI meeting — epics
+  that **transitioned into Amber/Red** this cycle, newly Red, large progress swings, newly
+  blocked. Use the empty-state line if nothing material changed.
+- **RAG summary** table.
+- **Risk register (Amber & Red)**: one row per **every** Amber/Red epic (not just reconciled
+  ones) — owner, RAG, the **reason** (signals + blockers from step 7.5), the **follow-up
+  action** (this cycle's drafted next steps if reconciled, else the latest `RAG flag:` comment
+  body from step 7.1), **reviewed this cycle?**, and **transitioned?**.
+- **Per-epic detail** (status, End date, % progress, recorded → agreed RAG, rationale), and for
+  each reconciled epic the agreed next steps and the drafted `RAG flag: …` comment + proposed
+  field edits.
+- **Changes since last report** at the bottom (the detailed diff; Highlights is its curated
+  front-page subset).
 
-### 9. Optional Jira writes (gated — OFF by default)
+For an **All teams** run, group the summary table and detail sections under a `## <Team>`
+heading per team, and lead with an overall R/A/G roll-up plus a per-team R/A/G breakdown. Add a
+**per-team freshness line** — "reviewed N of M epics this cycle" — and call out teams with any
+unreviewed epics, so the reader can see which teams updated their tickets. This file also serves
+as a local history of past reports — read the previous one in the folder if present (it is also
+the source for the cycle window and transitions in step 7).
+
+### 10. Optional Jira writes (gated — OFF by default)
 <HARD-GATE>
 Only if the user opted into Jira writes in step 1, offer to apply the drafted changes from
-step 7. Present them as a concrete list per epic (field → new value, comment text) and require
+step 8. Present them as a concrete list per epic (field → new value, comment text) and require
 an explicit per-epic (or per-action) **y/n** confirmation. Apply only what is confirmed:
 - field edits via `editJiraIssue` (`customfield_10159`, `customfield_10156`, …),
 - the comment via `addCommentToJiraIssue`.
@@ -176,4 +211,12 @@ apply on a future run.
 
 ## Done
 Report the path to the markdown file and a one-line RAG summary (counts of R/A/G and which
-epics were reconciled). If Jira writes were applied, list exactly what was changed.
+epics were reconciled). Also surface the at-risk picture: how many epics are Amber/Red, how many
+**transitioned into risk** this cycle, and how many epics/teams were **not reviewed this cycle**.
+If Jira writes were applied, list exactly what was changed.
+
+Then **offer the retrospective**: *"Want me to run `/pi-progress-retro` so the tool can learn
+from this run?"* It turns this session's RAG overrides, friction, and report-quality gaps into
+confirmed edits to the rubric / skill / template. It is especially worth running when the user
+**overrode one or more proposed RAGs** this cycle (each override is a signal the rubric may be
+miscalibrated). Offer it — do not auto-invoke.
