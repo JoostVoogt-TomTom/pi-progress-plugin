@@ -14,7 +14,8 @@ a ready-to-present **markdown report**.
    call rather than scanning tickets. You can pick **one team**, **several teams**, or **All
    teams** (every epic, grouped by team). On first run it also offers a one-time read-only
    authorization so data fetches don't prompt each time.
-1. Fetches the chosen team's epics from Jira for the delivery quarter (via the Atlassian MCP server).
+1. Fetches the chosen team's epics from Jira for the delivery quarter (via the Atlassian MCP
+   server), showing a **progress bar** that advances across the five fetch phases.
 2. **Proposes** a RAG status for each epic from real data — status, **End date**, child-issue
    progress, flags and blockers — with a one-line rationale.
 3. Shows the proposal against the **recorded** RAG (`RAG` field on the epic) and flags any

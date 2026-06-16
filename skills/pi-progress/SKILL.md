@@ -45,6 +45,32 @@ See `rag-rubric.md` (next to this file) for the full map and the decision rubric
 | Flagged | `customfield_10021` | Risk signal. |
 | Blockers | `issuelinks` | "is blocked by" open links = risk signal. |
 
+## Showing fetch progress (progress bar)
+
+While pulling data from Jira, show a **progress bar** so the user sees how far along the fetch
+is. Print an updated bar line **as each fetch phase completes** — and a counter line inside the
+looped fetches (pagination, per-epic comments). It is a step-by-step textual bar, not a live
+animation: each print is a new line that shows the bar a little more filled.
+
+The fetch has **5 phases**. Use a 10-segment bar (`█` filled, `░` empty) and name the phase:
+
+```
+Fetching from Jira ▕██░░░░░░░░▏ 20% · 1/5 resolve site
+Fetching from Jira ▕████░░░░░░▏ 40% · 2/5 discover teams + quarters
+Fetching from Jira ▕██████░░░░▏ 60% · 3/5 epics (15 found)
+Fetching from Jira ▕████████░░▏ 80% · 4/5 child progress … page 2/3
+Fetching from Jira ▕██████████▏ 100% · 5/5 at-risk comments … 6/6 (SEARCHPU-38376)
+```
+
+Rules:
+- Print the bar after **each** phase below finishes; advance it by one phase (≈20%).
+- For the **looped** phases, also print a counter as you go: child-progress **page N/total**
+  (total known once `pageInfo.hasNextPage` is false — show `page N` until then), and at-risk
+  **comments k/N** with the current epic key.
+- Phase 5 only runs when there are Amber/Red epics; if there are none, label it
+  `5/5 at-risk comments … none` and still complete the bar to 100%.
+- Keep it to a single updated line per step; don't interleave large data dumps between bars.
+
 ## Process
 
 ### 1. Collect inputs
@@ -83,6 +109,7 @@ If the user **declines**, proceed normally (you'll be prompted per call).
 ### 2. Resolve cloudId
 Call `getAccessibleAtlassianResources`; use the `tomtom` site's `id` as `cloudId` for all
 subsequent calls. (This is the first Jira call — it runs after the step 1a authorization offer.)
+→ then print the **phase 1/5** progress bar (*Showing fetch progress*).
 
 ### 2b. Discover teams + quarters and let the user choose (the opening interaction)
 Discover both lists from **field metadata** — one fast, complete call — rather than scanning
@@ -100,6 +127,8 @@ tickets:
      ```
      jq -r '.. | objects | select(.fieldId? == "fixVersions") | .allowedValues[]?.name' <file> | grep -E '^Q[0-9]{2}\.[0-9]$' | sort -t. -k1.2n -k2n
      ```
+
+→ this metadata fetch is the **phase 2/5** progress bar; print it before showing the pickers.
 
 Then present **two selection lists**:
 
@@ -134,6 +163,7 @@ Request `fields`: `summary, status, customfield_10159, customfield_10156, custom
 customfield_10150, fixVersions, assignee, customfield_10021, labels, issuelinks`.
 For a single-team run, include `AND "Teams" = <Team>`. For an **All teams** run, omit that
 clause and use `customfield_10150` (already requested) to group the output by team.
+→ then print the **phase 3/5** progress bar with the epic count (e.g. `3/5 epics (15 found)`).
 
 > Jira responses routinely exceed the inline token cap and auto-save to a file. When that
 > happens, do NOT try to read the whole file — extract what you need with `jq` (or hand the
@@ -146,6 +176,8 @@ clause and use `customfield_10150` (already requested) to group the output by te
 For each epic, `searchJiraIssuesUsingJql` with `parent = <EPIC-KEY>` (fields: `status`).
 Compute **% done** = children with `statusCategory = "Done"` ÷ total children. (Again, use
 `jq` on the saved file if large; just count by `statusCategory`.)
+→ this is the **phase 4/5** progress bar; when results paginate (`pageInfo.hasNextPage`),
+print the page counter as you go (`4/5 child progress … page 2/3`).
 
 ### 5. Propose RAG
 Apply the rubric in `rag-rubric.md` using **today's date**, weighting **completion / status
@@ -166,7 +198,9 @@ report. All reads — they never write to Jira.
    **Amber or Red**, fetch its comments read-only via `getJiraIssue` requesting the `comment`
    field (if the response auto-saves to a file, extract with `jq`). Find the **latest** comment
    whose first line is `RAG flag: <Color>`; capture its body (the **follow-up action**) and its
-   **created date**. Only the at-risk subset is fetched, to keep this cheap.
+   **created date**. Only the at-risk subset is fetched, to keep this cheap. This is the
+   **phase 5/5** progress bar: print a `5/5 at-risk comments … k/N (<epic>)` counter per epic,
+   and complete the bar to 100% (label `… none` if there are no Amber/Red epics).
 2. **Cycle window.** `(previous-report-date, today]`, where previous-report-date is the date of
    the most recent prior report for the same scope+quarter in `docs/pi-progress/`. If no prior
    report exists, default the window to **the last 14 days** (bi-weekly cadence).
