@@ -9,9 +9,11 @@ a ready-to-present **markdown report**.
 
 `/pi-progress`:
 
-0. **Opens by offering the list of teams to run for** — discovered live from the project
-   (e.g. in SEARCHPU: Moly, Mystery, DragonFly, Bob, Alchemists, Delivery). You can pick
-   **one team**, **several teams**, or **All teams** (every epic, grouped by team).
+0. **Opens with a quarter picker and a team picker** — both discovered from the project's
+   field metadata (the `Teams` field's allowed values and the project's versions), in one fast
+   call rather than scanning tickets. You can pick **one team**, **several teams**, or **All
+   teams** (every epic, grouped by team). On first run it also offers a one-time read-only
+   authorization so data fetches don't prompt each time.
 1. Fetches the chosen team's epics from Jira for the delivery quarter (via the Atlassian MCP server).
 2. **Proposes** a RAG status for each epic from real data — status, **End date**, child-issue
    progress, flags and blockers — with a one-line rationale.
@@ -49,10 +51,14 @@ This is deliberate for the testing phase.
 
 ## Requirements
 
-- The **Atlassian (Jira) MCP server** connected in Claude Code (the plugin uses
-  `getAccessibleAtlassianResources`, `searchJiraIssuesUsingJql`, `getJiraIssue`, and — only
-  for the opt-in write path — `editJiraIssue`, `addCommentToJiraIssue`,
-  `getJiraIssueTypeMetaWithFields`).
+- The **Atlassian (Jira) MCP server** connected in Claude Code. Read path:
+  `getAccessibleAtlassianResources`, `getJiraProjectIssueTypesMetadata` +
+  `getJiraIssueTypeMetaWithFields` (team/quarter discovery from field metadata),
+  `searchJiraIssuesUsingJql`, `getJiraIssue`. Opt-in write path only:
+  `editJiraIssue`, `addCommentToJiraIssue`.
+- On first run the plugin offers a **one-time read-only authorization** — it can add the
+  read tools above (plus `Bash(jq:*)`) to `.claude/settings.local.json` so data fetches don't
+  prompt each time. Write tools are never pre-authorized; they stay gated per the IRON-LAW.
 - `jq` available for parsing large Jira responses (they auto-save to a file when they exceed
   the inline limit).
 

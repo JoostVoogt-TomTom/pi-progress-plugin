@@ -17,7 +17,7 @@ presented at the Product Unit meeting. It reports on Jira **epics** using a **RA
 
 | Command | What it does |
 |---------|--------------|
-| `/pi-progress` | Opens by **offering the list of teams** to report on — discovered live from the project (e.g. in SEARCHPU: Moly, Mystery, DragonFly, Bob, Alchemists, Delivery), where you can pick **one, several, or All teams**. For a delivery quarter it pulls the chosen epics from Jira, **proposes** a RAG status (Red/Amber/Green) from live data, shows it against the **recorded** RAG, **guides reconciliation** of any mismatch (RAG + fields like End date) on single-team runs, and writes a **markdown progress report**. |
+| `/pi-progress` | Opens with **two pickers** — a **quarter** list and a **team** list (both discovered from the project's `Teams`/version field metadata; pick **one, several, or All teams**). It then pulls the chosen epics from Jira, **proposes** a RAG status (Red/Amber/Green) from live data, shows it against the **recorded** RAG, **guides reconciliation** of any mismatch (RAG + fields like End date) on single-team runs, and writes a **markdown progress report**. On first run it offers a **one-time read-only authorization** so data fetches don't prompt each time (writes stay gated). |
 | `/pi-progress-retro` | Run **after a `/pi-progress` run** to let the tool learn from itself — turns this session's **RAG overrides** (where you disagreed with the proposed status), friction, and report-quality gaps into **confirmed edits** to the plugin's own rubric / skill / report template. Findings file first; each edit is gated by an explicit y/n. Offered automatically at the end of a run. |
 
 ## RAG meaning

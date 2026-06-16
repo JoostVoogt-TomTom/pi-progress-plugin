@@ -50,41 +50,80 @@ See `rag-rubric.md` (next to this file) for the full map and the decision rubric
 ### 1. Collect inputs
 Establish, in order (accept any provided in the invocation; otherwise ask):
 - **Project key** — default `SEARCHPU` (also valid: `GOSDK`, …).
-- **Delivery quarter / fixVersion** — e.g. `Q26.2` (SEARCHPU) or `NavSDK_2026_Q2` (GOSDK).
-- **Team** — chosen from the project's actual teams (see step 1a). This is the value of the
-  `Teams` field (`customfield_10150`); team dashboards scope by it.
 - **Extra JQL** (optional) — appended verbatim for power users.
 - Whether to allow Jira writes this run (**default: no** — markdown only).
 
-### 1a. Offer the team list and let the user choose (the opening interaction)
-This is the **first thing** the skill does after resolving `cloudId` (step 2): it **offers the
-list of teams** and asks which to generate the overview for. Discover the teams live rather
-than hard-coding them — query the distinct `Teams` values:
-```
-project = <P> AND issuetype = Epic AND "Teams" is not EMPTY ORDER BY updated DESC
-```
-requesting only `fields: ["customfield_10150"]`, `maxResults: 100`. The response will
-auto-save to a file — extract the distinct, ordered team list with `jq`:
-```
-jq -r '.issues.nodes[].fields.customfield_10150.value // empty' <file> | sort | uniq -c | sort -rn
-```
-Then **present the discovered teams as a selectable list** (each with its epic count) using a
-selection prompt (`AskUserQuestion`, multi-select), always including an **"All teams"** option.
+The **delivery quarter** and **team** are NOT asked as free text — they are chosen from live
+option lists in step 2b. Skip that picker only if the user already named them in the invocation
+(e.g. `Q26.2`/`NavSDK_2026_Q2` for the quarter, `DragonFly` for the team).
+
+### 1a. Offer one-time read-only authorization (before the first Jira call)
+To avoid a permission prompt on every data fetch, offer **once** to pre-authorize this skill's
+**read-only** Jira tools. Ask a single y/n: *"Approve the read-only Jira data tools for this
+project so I don't have to ask each time? (Writes always stay gated.)"*
+
+If **yes**, add these rules to `.claude/settings.local.json` under `permissions.allow` (create
+the file/key if absent; the `update-config` skill can do this for you). Use the MCP tool-name
+form that matches this environment's Atlassian server (here `mcp__claude_ai_Atlassian__…`):
+- `mcp__claude_ai_Atlassian__getAccessibleAtlassianResources`
+- `mcp__claude_ai_Atlassian__getJiraProjectIssueTypesMetadata`
+- `mcp__claude_ai_Atlassian__getJiraIssueTypeMetaWithFields`
+- `mcp__claude_ai_Atlassian__searchJiraIssuesUsingJql`
+- `mcp__claude_ai_Atlassian__getJiraIssue`
+- `Bash(jq:*)`
+
+<HARD-GATE>
+NEVER add a Jira **write** tool (`editJiraIssue`, `addCommentToJiraIssue`,
+`transitionJiraIssue`) to the allow-list. The IRON-LAW write gate (step 10) must always require
+explicit per-action confirmation. This one-time authorization covers **data fetching only**.
+</HARD-GATE>
+
+If the user **declines**, proceed normally (you'll be prompted per call).
+
+### 2. Resolve cloudId
+Call `getAccessibleAtlassianResources`; use the `tomtom` site's `id` as `cloudId` for all
+subsequent calls. (This is the first Jira call — it runs after the step 1a authorization offer.)
+
+### 2b. Discover teams + quarters and let the user choose (the opening interaction)
+Discover both lists from **field metadata** — one fast, complete call — rather than scanning
+tickets:
+
+1. Resolve the **Epic** issue-type id for the project via `getJiraProjectIssueTypesMetadata`
+   (find the type named `Epic`; commonly `10000` in SEARCHPU — verify, don't hard-code).
+2. Call `getJiraIssueTypeMetaWithFields(projectIdOrKey=<P>, issueTypeId=<Epic id>)`. The
+   response is large and auto-saves to a file — extract with `jq` (do NOT read the whole file):
+   - **Teams** — allowed values of the `Teams` field:
+     ```
+     jq -r '.. | objects | select(.fieldId? == "customfield_10150" or .key? == "customfield_10150") | .allowedValues[]?.value' <file> | sort
+     ```
+   - **Quarters** — the project's fixVersions, filtered to the `Q<YY>.<N>` quarter pattern:
+     ```
+     jq -r '.. | objects | select(.fieldId? == "fixVersions") | .allowedValues[]?.name' <file> | grep -E '^Q[0-9]{2}\.[0-9]$' | sort -t. -k1.2n -k2n
+     ```
+
+Then present **two selection lists**:
+
+- **Quarter** — an `AskUserQuestion` option list. Compute the current quarter from **today's
+  date** (e.g. 2026-06-16 → `Q26.2`) and offer it (labelled *Recommended*) plus its nearest
+  neighbours (previous + next quarter), max 4 options. The auto **"Other"** lets the user type
+  any version verbatim (e.g. a `GOSDK` version like `NavSDK_2026_Q2`).
+- **Team** — always including an **"All teams"** option:
+  - **≤4 teams** → an `AskUserQuestion` chip list (the teams + "All teams").
+  - **>4 teams** (e.g. SEARCHPU's 11) → present a clean **numbered list** and let the user
+    reply with the number(s) or name(s). `AskUserQuestion` caps at 4 options, so the numbered
+    list is the fallback whenever the project has more teams than fit.
+
 The user may pick:
 - **one team** → single-team run with interactive reconciliation (steps 6 and 8);
 - **several teams** → run each selected team and produce a combined overview grouped by team;
 - **All teams** → every epic in the project + quarter, grouped by team (read-only roll-up).
 
 Notes:
-- As of this writing, SEARCHPU teams seen are: **Moly, Mystery, DragonFly, Bob, Alchemists,
-  Delivery** — a fallback hint only; the live discovery query is the source of truth.
-- If the user already named a team (or teams) in the invocation, skip the prompt and use it,
-  validating each appears in the discovered list (warn and re-offer the list if not).
+- The `Teams` field allowed-values are the source of truth — they include teams that may have
+  **no** epics in the chosen quarter (that's fine; those simply yield an empty run).
+- If the user already named a team/quarter in the invocation, skip the relevant picker, but
+  still validate the team appears in the discovered allowed values (warn + show the list if not).
 - Multi-team and All-teams runs follow the read-only roll-up behavior in step 8.
-
-### 2. Resolve cloudId
-Call `getAccessibleAtlassianResources`; use the `tomtom` site's `id` as `cloudId` for all
-subsequent calls. (Do this before step 1a, since team discovery needs it.)
 
 ### 3. Fetch epics
 `searchJiraIssuesUsingJql` with:
